@@ -1,7 +1,5 @@
-"use client"
-
-import { useState } from "react"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { NkapLogo } from "@/components/nkap-logo"
@@ -10,79 +8,84 @@ import { QuickActions } from "@/components/quick-actions"
 import { TontineCard } from "@/components/tontine-card"
 import { ActivityFeed } from "@/components/activity-feed"
 import { Bell, Search } from "lucide-react"
+import { createClient } from "@/lib/supabase/server"
 import { SUPPORTED_COUNTRIES } from "@/lib/types"
 
-// Mock data
-const mockTontines = [
-  {
-    id: "1",
-    name: "Famille Nguema",
-    slogan: "Ensemble pour réussir",
-    contributionAmount: 500,
-    frequency: "monthly" as const,
-    currentMembers: 12,
-    maxMembers: 15,
-    status: "active" as const,
-    nextContribution: new Date("2025-12-01"),
-    myContributionStatus: "pending" as const,
-  },
-  {
-    id: "2",
-    name: "Collègues Tech",
-    slogan: "Innovation solidaire",
-    contributionAmount: 200,
-    frequency: "weekly" as const,
-    currentMembers: 8,
-    maxMembers: 10,
-    status: "active" as const,
-    nextContribution: new Date("2025-11-28"),
-    myContributionStatus: "paid" as const,
-  },
-  {
-    id: "3",
-    name: "Diaspora Paris",
-    slogan: "Loin mais unis",
-    contributionAmount: 1000,
-    frequency: "monthly" as const,
-    currentMembers: 20,
-    maxMembers: 20,
-    status: "active" as const,
-    nextContribution: new Date("2025-12-15"),
-    myContributionStatus: "late" as const,
-  },
-]
+export default async function DashboardPage() {
+  const supabase = await createClient()
 
-const mockActivities = [
-  {
-    id: "1",
-    type: "contribution" as const,
-    title: "Contribution reçue",
-    description: "Jean-Baptiste a contribué 500 Nkap",
-    tontineName: "Famille Nguema",
-    time: "2 min",
-  },
-  {
-    id: "2",
-    type: "reception" as const,
-    title: "Pot reçu",
-    description: "Vous avez reçu le pot de 6,000 Nkap",
-    tontineName: "Collègues Tech",
-    time: "1 heure",
-  },
-  {
-    id: "3",
-    type: "reminder" as const,
-    title: "Rappel de cotisation",
-    description: "Échéance dans 2 jours",
-    tontineName: "Diaspora Paris",
-    time: "3 heures",
-  },
-]
+  // Get user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    redirect("/login")
+  }
 
-export default function DashboardPage() {
-  const [showBalance, setShowBalance] = useState(true)
-  const [hasNotifications] = useState(true)
-  const country = SUPPORTED_COUNTRIES[0]
+  // Get profile
+  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+
+  // Get user's tontines
+  const { data: memberships } = await supabase
+    .from("tontine_members")
+    .select(`
+      *,
+      tontine:tontines(*)
+    `)
+    .eq("user_id", user.id)
+    .in("status", ["active", "pending"])
+    .limit(3)
+
+  const tontines =
+    memberships?.map((m) => ({
+      id: m.tontine?.id || "",
+      name: m.tontine?.name || "",
+      slogan: m.tontine?.slogan || "",
+      contributionAmount: m.tontine?.contribution_amount || 0,
+      frequency: m.tontine?.frequency as "daily" | "weekly" | "biweekly" | "monthly" | "yearly",
+      currentMembers: 0,
+      maxMembers: m.tontine?.max_members || 0,
+      status: m.tontine?.status as "pending" | "active" | "completed",
+      nextContribution: m.tontine?.next_session_date ? new Date(m.tontine.next_session_date) : new Date(),
+      myContributionStatus: "pending" as const,
+    })) || []
+
+  // Get recent activity
+  const { data: recentContributions } = await supabase
+    .from("contributions")
+    .select(`
+      *,
+      tontine:tontines(name),
+      profile:profiles(full_name)
+    `)
+    .order("created_at", { ascending: false })
+    .limit(5)
+
+  const activities =
+    recentContributions?.map((c) => ({
+      id: c.id,
+      type: "contribution" as const,
+      title: "Contribution reçue",
+      description: `${c.profile?.full_name || "Membre"} a contribué ${c.amount} Nkap`,
+      tontineName: c.tontine?.name || "",
+      time: getTimeAgo(new Date(c.created_at)),
+    })) || []
+
+  // Get notifications count
+  const { count: notificationCount } = await supabase
+    .from("notifications")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("is_read", false)
+
+  const country = SUPPORTED_COUNTRIES.find((c) => c.code === profile?.country) || SUPPORTED_COUNTRIES[0]
+  const userName = profile?.full_name || user.email?.split("@")[0] || "Utilisateur"
+  const initials = userName
+    .split(" ")
+    .map((n: string) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2)
 
   return (
     <main className="flex-1">
@@ -91,11 +94,11 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary-foreground/20 flex items-center justify-center">
-              <span className="text-lg font-semibold">MN</span>
+              <span className="text-lg font-semibold">{initials}</span>
             </div>
             <div>
               <p className="text-sm text-primary-foreground/70">Bonjour,</p>
-              <h1 className="font-semibold">Marie Nguema</h1>
+              <h1 className="font-semibold">{userName}</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -113,7 +116,7 @@ export default function DashboardPage() {
                 className="rounded-full text-primary-foreground hover:bg-primary-foreground/20 relative"
               >
                 <Bell className="w-5 h-5" />
-                {hasNotifications && (
+                {notificationCount && notificationCount > 0 && (
                   <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-secondary rounded-full border-2 border-primary" />
                 )}
               </Button>
@@ -121,14 +124,14 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Balance Card - positioned to overlap */}
+        {/* Balance Card */}
         <div className="relative">
           <NkapBalanceCard
-            balance={15000}
-            lockedBalance={5000}
+            balance={profile?.nkap_balance || 0}
+            lockedBalance={0}
             country={country}
-            showBalance={showBalance}
-            onToggleVisibility={() => setShowBalance(!showBalance)}
+            showBalance={true}
+            onToggleVisibility={() => {}}
           />
         </div>
       </header>
@@ -146,11 +149,27 @@ export default function DashboardPage() {
               Voir tout
             </Link>
           </div>
-          <div className="space-y-3">
-            {mockTontines.slice(0, 2).map((tontine) => (
-              <TontineCard key={tontine.id} tontine={tontine} />
-            ))}
-          </div>
+          {tontines.length > 0 ? (
+            <div className="space-y-3">
+              {tontines.map((tontine) => (
+                <TontineCard key={tontine.id} tontine={tontine} />
+              ))}
+            </div>
+          ) : (
+            <Card className="p-6 rounded-2xl text-center">
+              <p className="text-muted-foreground mb-4">Vous n'avez pas encore de tontine</p>
+              <div className="flex gap-3 justify-center">
+                <Link href="/dashboard/create">
+                  <Button className="rounded-full">Créer une tontine</Button>
+                </Link>
+                <Link href="/dashboard/join">
+                  <Button variant="outline" className="rounded-full bg-transparent">
+                    Rejoindre
+                  </Button>
+                </Link>
+              </div>
+            </Card>
+          )}
         </section>
 
         {/* Recent Activity */}
@@ -161,7 +180,13 @@ export default function DashboardPage() {
               Voir tout
             </Link>
           </div>
-          <ActivityFeed activities={mockActivities} />
+          {activities.length > 0 ? (
+            <ActivityFeed activities={activities} />
+          ) : (
+            <Card className="p-6 rounded-2xl text-center">
+              <p className="text-muted-foreground">Aucune activité récente</p>
+            </Card>
+          )}
         </section>
 
         {/* Exchange Rate Info */}
@@ -184,4 +209,14 @@ export default function DashboardPage() {
       </div>
     </main>
   )
+}
+
+function getTimeAgo(date: Date): string {
+  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000)
+
+  if (seconds < 60) return "À l'instant"
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} h`
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)} j`
+  return `${Math.floor(seconds / 604800)} sem`
 }

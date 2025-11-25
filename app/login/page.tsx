@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -9,16 +8,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NkapLogo } from "@/components/nkap-logo"
-import { CountrySelector } from "@/components/country-selector"
-import { SUPPORTED_COUNTRIES, type Country } from "@/lib/types"
 import { Eye, EyeOff, ArrowLeft, Fingerprint } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 export default function LoginPage() {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [country, setCountry] = useState<Country>(SUPPORTED_COUNTRIES[0])
-  const [phone, setPhone] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
 
@@ -27,20 +24,38 @@ export default function LoginPage() {
     setIsLoading(true)
     setError("")
 
-    // Simulate login
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    try {
+      const supabase = createClient()
 
-    // For demo, accept any credentials
-    localStorage.setItem("nkap_user", JSON.stringify({ phone, country }))
-    router.push("/dashboard")
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) {
+        if (error.message.includes("Invalid login credentials")) {
+          setError("Email ou mot de passe incorrect")
+        } else if (error.message.includes("Email not confirmed")) {
+          setError("Veuillez confirmer votre email avant de vous connecter")
+        } else {
+          setError(error.message)
+        }
+        setIsLoading(false)
+        return
+      }
+
+      router.push("/dashboard")
+      router.refresh()
+    } catch (err) {
+      setError("Une erreur est survenue. Veuillez réessayer.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleBiometric = async () => {
-    // Simulate biometric auth
-    setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    localStorage.setItem("nkap_user", JSON.stringify({ phone: "biometric" }))
-    router.push("/dashboard")
+    // Biometric auth would require native app integration
+    setError("La connexion biométrique n'est pas encore disponible")
   }
 
   return (
@@ -63,25 +78,15 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-5">
           <div className="space-y-2">
-            <Label>Pays</Label>
-            <CountrySelector value={country} onChange={setCountry} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="phone">Numéro de téléphone</Label>
-            <div className="flex gap-2">
-              <div className="h-14 px-4 rounded-2xl bg-muted flex items-center gap-2 text-sm shrink-0">
-                <span>{country.flag}</span>
-              </div>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="691 234 567"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="flex-1 h-14 rounded-2xl text-base"
-              />
-            </div>
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="votre@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="h-14 rounded-2xl text-base"
+            />
           </div>
 
           <div className="space-y-2">
@@ -112,12 +117,12 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {error && <p className="text-sm text-destructive text-center">{error}</p>}
+          {error && <p className="text-sm text-destructive text-center p-3 bg-destructive/10 rounded-xl">{error}</p>}
 
           <Button
             type="submit"
             size="lg"
-            disabled={isLoading || !phone || !password}
+            disabled={isLoading || !email || !password}
             className="w-full rounded-full h-14 text-lg font-semibold"
           >
             {isLoading ? (

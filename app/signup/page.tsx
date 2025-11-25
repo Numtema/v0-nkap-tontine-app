@@ -10,6 +10,7 @@ import { NkapLogo } from "@/components/nkap-logo"
 import { CountrySelector } from "@/components/country-selector"
 import { SUPPORTED_COUNTRIES, type Country } from "@/lib/types"
 import { Eye, EyeOff, ArrowLeft, ChevronRight } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -37,7 +38,8 @@ export default function SignupPage() {
 
   const validateStep2 = () => {
     const newErrors: Record<string, string> = {}
-    if (!formData.phone.trim()) newErrors.phone = "Numéro de téléphone requis"
+    if (!formData.email.trim()) newErrors.email = "Email requis"
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = "Email invalide"
     if (formData.password.length < 6) newErrors.password = "Minimum 6 caractères"
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = "Les mots de passe ne correspondent pas"
@@ -56,12 +58,38 @@ export default function SignupPage() {
 
   const handleSubmit = async () => {
     setIsLoading(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    setErrors({})
 
-    // Store pending registration
-    localStorage.setItem("nkap_pending_signup", JSON.stringify(formData))
-    router.push("/verify")
+    try {
+      const supabase = createClient()
+
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/dashboard`,
+          data: {
+            full_name: `${formData.firstName} ${formData.lastName}`,
+            phone: formData.phone,
+            country: formData.country.code,
+          },
+        },
+      })
+
+      if (error) {
+        setErrors({ submit: error.message })
+        setIsLoading(false)
+        return
+      }
+
+      if (data.user) {
+        router.push("/auth/sign-up-success")
+      }
+    } catch (err) {
+      setErrors({ submit: "Une erreur est survenue. Veuillez réessayer." })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleCountryChange = (country: Country) => {
@@ -137,7 +165,7 @@ export default function SignupPage() {
         ) : (
           <div className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="phone">Numéro de téléphone</Label>
+              <Label htmlFor="phone">Numéro de téléphone (optionnel)</Label>
               <div className="flex gap-2">
                 <div className="h-14 px-4 rounded-2xl bg-muted flex items-center gap-2 text-sm">
                   <span>{formData.country.flag}</span>
@@ -152,11 +180,10 @@ export default function SignupPage() {
                   className="flex-1 h-14 rounded-2xl text-base"
                 />
               </div>
-              {errors.phone && <p className="text-sm text-destructive">{errors.phone}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email (optionnel)</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -165,6 +192,7 @@ export default function SignupPage() {
                 onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
                 className="h-14 rounded-2xl text-base"
               />
+              {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
             </div>
 
             <div className="space-y-2">
@@ -203,6 +231,10 @@ export default function SignupPage() {
               />
               {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword}</p>}
             </div>
+
+            {errors.submit && (
+              <p className="text-sm text-destructive text-center p-3 bg-destructive/10 rounded-xl">{errors.submit}</p>
+            )}
           </div>
         )}
       </div>

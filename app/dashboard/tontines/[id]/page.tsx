@@ -23,6 +23,8 @@ import {
   FileText,
   Vote,
   Shuffle,
+  AlertTriangle,
+  UserPlus,
 } from "lucide-react"
 
 // Mock tontine data
@@ -40,6 +42,7 @@ const mockTontine = {
   totalCycles: 12,
   nextContribution: new Date("2025-12-01"),
   startDate: new Date("2025-09-01"),
+  pendingRequests: 3,
   bureau: {
     president: "Marie Nguema",
     secretary: "Jean-Baptiste Kamga",
@@ -280,6 +283,23 @@ export default function TontineDetailPage({ params }: { params: Promise<{ id: st
                   <p className="font-medium text-sm">Rapports</p>
                 </Card>
               </Link>
+              <Link href={`/dashboard/tontines/${id}/penalties`}>
+                <Card className="p-4 rounded-2xl hover:shadow-md transition-shadow">
+                  <AlertTriangle className="w-6 h-6 text-warning mb-2" />
+                  <p className="font-medium text-sm">Pénalités</p>
+                </Card>
+              </Link>
+              <Link href={`/dashboard/tontines/${id}/invitations`}>
+                <Card className="p-4 rounded-2xl hover:shadow-md transition-shadow relative">
+                  <UserPlus className="w-6 h-6 text-success mb-2" />
+                  <p className="font-medium text-sm">Adhésions</p>
+                  {mockTontine.pendingRequests > 0 && (
+                    <Badge className="absolute top-2 right-2 bg-destructive text-destructive-foreground rounded-full w-5 h-5 p-0 flex items-center justify-center text-xs">
+                      {mockTontine.pendingRequests}
+                    </Badge>
+                  )}
+                </Card>
+              </Link>
               <Link href={`/dashboard/tontines/${id}/settings`}>
                 <Card className="p-4 rounded-2xl hover:shadow-md transition-shadow">
                   <Settings className="w-6 h-6 text-muted-foreground mb-2" />
@@ -296,10 +316,12 @@ export default function TontineDetailPage({ params }: { params: Promise<{ id: st
               <p className="text-sm text-muted-foreground">
                 {mockTontine.currentMembers}/{mockTontine.maxMembers} membres
               </p>
-              <Button variant="outline" size="sm" className="rounded-full gap-1 bg-transparent">
-                <Users className="w-4 h-4" />
-                Inviter
-              </Button>
+              <Link href={`/dashboard/tontines/${id}/invitations`}>
+                <Button variant="outline" size="sm" className="rounded-full gap-1 bg-transparent">
+                  <Users className="w-4 h-4" />
+                  Inviter
+                </Button>
+              </Link>
             </div>
 
             <Card className="rounded-2xl divide-y divide-border">
