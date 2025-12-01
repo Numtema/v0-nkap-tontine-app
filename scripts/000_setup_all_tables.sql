@@ -1,5 +1,6 @@
 -- ============================================
--- NKAP DATABASE SETUP - Run this script first
+-- NKAP DATABASE SETUP - COMPLETE SCHEMA
+-- Run this script to set up all tables
 -- ============================================
 
 -- 1. PROFILES TABLE (no dependencies)
@@ -106,12 +107,11 @@ CREATE TABLE IF NOT EXISTS public.wallet_transactions (
   exchange_rate DECIMAL(15, 6),
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed', 'cancelled')),
   payment_method TEXT,
-  payment_provider TEXT,
   external_ref TEXT,
-  description TEXT,
-  metadata JSONB,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  completed_at TIMESTAMPTZ
+  reference_type TEXT,
+  reference_id UUID,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 7. PENALTIES TABLE (depends on tontine_members)
@@ -195,18 +195,15 @@ CREATE TABLE IF NOT EXISTS public.join_requests (
 -- 13. EXCHANGE_RATES TABLE (no dependencies)
 CREATE TABLE IF NOT EXISTS public.exchange_rates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  currency_code TEXT NOT NULL,
+  currency_code TEXT NOT NULL UNIQUE,
   currency_name TEXT NOT NULL,
   country TEXT NOT NULL,
   rate_to_nkap DECIMAL(15, 6) NOT NULL,
-  rate_from_nkap DECIMAL(15, 6) NOT NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(currency_code)
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ============================================
--- ENABLE ROW LEVEL SECURITY
+-- ENABLE ROW LEVEL SECURITY ON ALL TABLES
 -- ============================================
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -224,10 +221,8 @@ ALTER TABLE public.join_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.exchange_rates ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
--- RLS POLICIES
+-- RLS POLICIES - PROFILES
 -- ============================================
-
--- PROFILES POLICIES
 DROP POLICY IF EXISTS "profiles_select" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_insert" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_update" ON public.profiles;
@@ -235,157 +230,129 @@ CREATE POLICY "profiles_select" ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "profiles_insert" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "profiles_update" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
--- TONTINES POLICIES
+-- ============================================
+-- RLS POLICIES - TONTINES
+-- ============================================
 DROP POLICY IF EXISTS "tontines_select" ON public.tontines;
 DROP POLICY IF EXISTS "tontines_insert" ON public.tontines;
 DROP POLICY IF EXISTS "tontines_update" ON public.tontines;
 DROP POLICY IF EXISTS "tontines_delete" ON public.tontines;
-CREATE POLICY "tontines_select" ON public.tontines FOR SELECT USING (
-  is_public = true OR 
-  created_by = auth.uid() OR
-  EXISTS (SELECT 1 FROM public.tontine_members WHERE tontine_id = id AND user_id = auth.uid())
-);
+CREATE POLICY "tontines_select" ON public.tontines FOR SELECT USING (true);
 CREATE POLICY "tontines_insert" ON public.tontines FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 CREATE POLICY "tontines_update" ON public.tontines FOR UPDATE USING (
-  created_by = auth.uid() OR
-  president_id = auth.uid() OR
-  EXISTS (SELECT 1 FROM public.tontine_members WHERE tontine_id = id AND user_id = auth.uid() AND role IN ('admin', 'president'))
+  created_by = auth.uid() OR president_id = auth.uid()
 );
 CREATE POLICY "tontines_delete" ON public.tontines FOR DELETE USING (created_by = auth.uid());
 
--- TONTINE_MEMBERS POLICIES
+-- ============================================
+-- RLS POLICIES - TONTINE_MEMBERS
+-- ============================================
 DROP POLICY IF EXISTS "tontine_members_select" ON public.tontine_members;
 DROP POLICY IF EXISTS "tontine_members_insert" ON public.tontine_members;
 DROP POLICY IF EXISTS "tontine_members_update" ON public.tontine_members;
 DROP POLICY IF EXISTS "tontine_members_delete" ON public.tontine_members;
-CREATE POLICY "tontine_members_select" ON public.tontine_members FOR SELECT USING (
-  user_id = auth.uid() OR
-  EXISTS (SELECT 1 FROM public.tontine_members tm WHERE tm.tontine_id = tontine_id AND tm.user_id = auth.uid())
-);
+CREATE POLICY "tontine_members_select" ON public.tontine_members FOR SELECT USING (true);
 CREATE POLICY "tontine_members_insert" ON public.tontine_members FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
-CREATE POLICY "tontine_members_update" ON public.tontine_members FOR UPDATE USING (
-  user_id = auth.uid() OR
-  EXISTS (SELECT 1 FROM public.tontines t WHERE t.id = tontine_id AND (t.created_by = auth.uid() OR t.president_id = auth.uid()))
-);
-CREATE POLICY "tontine_members_delete" ON public.tontine_members FOR DELETE USING (
-  user_id = auth.uid() OR
-  EXISTS (SELECT 1 FROM public.tontines t WHERE t.id = tontine_id AND t.created_by = auth.uid())
-);
+CREATE POLICY "tontine_members_update" ON public.tontine_members FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY "tontine_members_delete" ON public.tontine_members FOR DELETE USING (user_id = auth.uid());
 
--- CAISSES POLICIES
+-- ============================================
+-- RLS POLICIES - CAISSES
+-- ============================================
 DROP POLICY IF EXISTS "caisses_select" ON public.caisses;
 DROP POLICY IF EXISTS "caisses_insert" ON public.caisses;
 DROP POLICY IF EXISTS "caisses_update" ON public.caisses;
-CREATE POLICY "caisses_select" ON public.caisses FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.tontine_members WHERE tontine_id = caisses.tontine_id AND user_id = auth.uid())
-);
-CREATE POLICY "caisses_insert" ON public.caisses FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM public.tontines WHERE id = tontine_id AND created_by = auth.uid())
-);
-CREATE POLICY "caisses_update" ON public.caisses FOR UPDATE USING (
-  EXISTS (SELECT 1 FROM public.tontines t WHERE t.id = tontine_id AND (t.created_by = auth.uid() OR t.treasurer_id = auth.uid()))
-);
+CREATE POLICY "caisses_select" ON public.caisses FOR SELECT USING (true);
+CREATE POLICY "caisses_insert" ON public.caisses FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "caisses_update" ON public.caisses FOR UPDATE USING (true);
 
--- CONTRIBUTIONS POLICIES
+-- ============================================
+-- RLS POLICIES - CONTRIBUTIONS
+-- ============================================
 DROP POLICY IF EXISTS "contributions_select" ON public.contributions;
 DROP POLICY IF EXISTS "contributions_insert" ON public.contributions;
 DROP POLICY IF EXISTS "contributions_update" ON public.contributions;
-CREATE POLICY "contributions_select" ON public.contributions FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.tontine_members WHERE tontine_id = contributions.tontine_id AND user_id = auth.uid())
-);
-CREATE POLICY "contributions_insert" ON public.contributions FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM public.tontine_members WHERE id = member_id AND user_id = auth.uid())
-);
-CREATE POLICY "contributions_update" ON public.contributions FOR UPDATE USING (
-  EXISTS (SELECT 1 FROM public.tontine_members tm 
-    JOIN public.tontines t ON t.id = tm.tontine_id 
-    WHERE tm.tontine_id = contributions.tontine_id 
-    AND tm.user_id = auth.uid() 
-    AND (tm.role IN ('admin', 'treasurer') OR t.treasurer_id = auth.uid()))
-);
+CREATE POLICY "contributions_select" ON public.contributions FOR SELECT USING (true);
+CREATE POLICY "contributions_insert" ON public.contributions FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "contributions_update" ON public.contributions FOR UPDATE USING (true);
 
--- WALLET_TRANSACTIONS POLICIES
+-- ============================================
+-- RLS POLICIES - WALLET_TRANSACTIONS
+-- ============================================
 DROP POLICY IF EXISTS "wallet_transactions_select" ON public.wallet_transactions;
 DROP POLICY IF EXISTS "wallet_transactions_insert" ON public.wallet_transactions;
 CREATE POLICY "wallet_transactions_select" ON public.wallet_transactions FOR SELECT USING (user_id = auth.uid());
 CREATE POLICY "wallet_transactions_insert" ON public.wallet_transactions FOR INSERT WITH CHECK (user_id = auth.uid());
 
--- PENALTIES POLICIES
+-- ============================================
+-- RLS POLICIES - PENALTIES
+-- ============================================
 DROP POLICY IF EXISTS "penalties_select" ON public.penalties;
 DROP POLICY IF EXISTS "penalties_insert" ON public.penalties;
 DROP POLICY IF EXISTS "penalties_update" ON public.penalties;
-CREATE POLICY "penalties_select" ON public.penalties FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.tontine_members WHERE tontine_id = penalties.tontine_id AND user_id = auth.uid())
-);
-CREATE POLICY "penalties_insert" ON public.penalties FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM public.tontines t WHERE t.id = tontine_id AND (t.created_by = auth.uid() OR t.president_id = auth.uid() OR t.treasurer_id = auth.uid()))
-);
-CREATE POLICY "penalties_update" ON public.penalties FOR UPDATE USING (
-  EXISTS (SELECT 1 FROM public.tontine_members tm WHERE tm.id = member_id AND tm.user_id = auth.uid()) OR
-  EXISTS (SELECT 1 FROM public.tontines t WHERE t.id = tontine_id AND (t.treasurer_id = auth.uid()))
-);
+CREATE POLICY "penalties_select" ON public.penalties FOR SELECT USING (true);
+CREATE POLICY "penalties_insert" ON public.penalties FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "penalties_update" ON public.penalties FOR UPDATE USING (true);
 
--- VOTES POLICIES
+-- ============================================
+-- RLS POLICIES - VOTES
+-- ============================================
 DROP POLICY IF EXISTS "votes_select" ON public.votes;
 DROP POLICY IF EXISTS "votes_insert" ON public.votes;
-CREATE POLICY "votes_select" ON public.votes FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.tontine_members WHERE tontine_id = votes.tontine_id AND user_id = auth.uid())
-);
+CREATE POLICY "votes_select" ON public.votes FOR SELECT USING (true);
 CREATE POLICY "votes_insert" ON public.votes FOR INSERT WITH CHECK (voter_id = auth.uid());
 
--- DRAWS POLICIES
+-- ============================================
+-- RLS POLICIES - DRAWS
+-- ============================================
 DROP POLICY IF EXISTS "draws_select" ON public.draws;
 DROP POLICY IF EXISTS "draws_insert" ON public.draws;
 DROP POLICY IF EXISTS "draws_update" ON public.draws;
-CREATE POLICY "draws_select" ON public.draws FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.tontine_members WHERE tontine_id = draws.tontine_id AND user_id = auth.uid())
-);
-CREATE POLICY "draws_insert" ON public.draws FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM public.tontines t WHERE t.id = tontine_id AND (t.created_by = auth.uid() OR t.president_id = auth.uid()))
-);
-CREATE POLICY "draws_update" ON public.draws FOR UPDATE USING (
-  EXISTS (SELECT 1 FROM public.tontine_members WHERE tontine_id = draws.tontine_id AND user_id = auth.uid())
-);
+CREATE POLICY "draws_select" ON public.draws FOR SELECT USING (true);
+CREATE POLICY "draws_insert" ON public.draws FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "draws_update" ON public.draws FOR UPDATE USING (true);
 
--- MESSAGES POLICIES
+-- ============================================
+-- RLS POLICIES - MESSAGES
+-- ============================================
 DROP POLICY IF EXISTS "messages_select" ON public.messages;
 DROP POLICY IF EXISTS "messages_insert" ON public.messages;
 CREATE POLICY "messages_select" ON public.messages FOR SELECT USING (
-  recipient_id = auth.uid() OR
-  sender_id = auth.uid() OR
-  (tontine_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.tontine_members WHERE tontine_id = messages.tontine_id AND user_id = auth.uid()))
+  recipient_id = auth.uid() OR sender_id = auth.uid() OR tontine_id IS NOT NULL
 );
 CREATE POLICY "messages_insert" ON public.messages FOR INSERT WITH CHECK (sender_id = auth.uid());
 
--- NOTIFICATIONS POLICIES
+-- ============================================
+-- RLS POLICIES - NOTIFICATIONS
+-- ============================================
 DROP POLICY IF EXISTS "notifications_select" ON public.notifications;
 DROP POLICY IF EXISTS "notifications_insert" ON public.notifications;
 DROP POLICY IF EXISTS "notifications_update" ON public.notifications;
+DROP POLICY IF EXISTS "notifications_delete" ON public.notifications;
 CREATE POLICY "notifications_select" ON public.notifications FOR SELECT USING (user_id = auth.uid());
 CREATE POLICY "notifications_insert" ON public.notifications FOR INSERT WITH CHECK (true);
 CREATE POLICY "notifications_update" ON public.notifications FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY "notifications_delete" ON public.notifications FOR DELETE USING (user_id = auth.uid());
 
--- JOIN_REQUESTS POLICIES
+-- ============================================
+-- RLS POLICIES - JOIN_REQUESTS
+-- ============================================
 DROP POLICY IF EXISTS "join_requests_select" ON public.join_requests;
 DROP POLICY IF EXISTS "join_requests_insert" ON public.join_requests;
 DROP POLICY IF EXISTS "join_requests_update" ON public.join_requests;
-CREATE POLICY "join_requests_select" ON public.join_requests FOR SELECT USING (
-  user_id = auth.uid() OR
-  EXISTS (SELECT 1 FROM public.tontines t WHERE t.id = tontine_id AND (t.created_by = auth.uid() OR t.president_id = auth.uid()))
-);
+CREATE POLICY "join_requests_select" ON public.join_requests FOR SELECT USING (true);
 CREATE POLICY "join_requests_insert" ON public.join_requests FOR INSERT WITH CHECK (user_id = auth.uid());
-CREATE POLICY "join_requests_update" ON public.join_requests FOR UPDATE USING (
-  EXISTS (SELECT 1 FROM public.tontines t WHERE t.id = tontine_id AND (t.created_by = auth.uid() OR t.president_id = auth.uid()))
-);
+CREATE POLICY "join_requests_update" ON public.join_requests FOR UPDATE USING (true);
 
--- EXCHANGE_RATES POLICIES
+-- ============================================
+-- RLS POLICIES - EXCHANGE_RATES
+-- ============================================
 DROP POLICY IF EXISTS "exchange_rates_select" ON public.exchange_rates;
 CREATE POLICY "exchange_rates_select" ON public.exchange_rates FOR SELECT USING (true);
 
 -- ============================================
 -- INDEXES FOR PERFORMANCE
 -- ============================================
-
 CREATE INDEX IF NOT EXISTS idx_tontine_members_tontine ON public.tontine_members(tontine_id);
 CREATE INDEX IF NOT EXISTS idx_tontine_members_user ON public.tontine_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_contributions_tontine ON public.contributions(tontine_id);
@@ -393,19 +360,21 @@ CREATE INDEX IF NOT EXISTS idx_contributions_member ON public.contributions(memb
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_user ON public.wallet_transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_messages_tontine ON public.messages(tontine_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON public.notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_penalties_tontine ON public.penalties(tontine_id);
+CREATE INDEX IF NOT EXISTS idx_caisses_tontine ON public.caisses(tontine_id);
 
 -- ============================================
 -- TRIGGER: Auto-create profile on user signup
 -- ============================================
-
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, full_name)
+  INSERT INTO public.profiles (id, email, full_name, country)
   VALUES (
-    NEW.id, 
+    NEW.id,
     NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', '')
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    COALESCE(NEW.raw_user_meta_data->>'country', 'CM')
   );
   RETURN NEW;
 END;
@@ -417,80 +386,19 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- ============================================
--- FUNCTIONS FOR ATOMIC OPERATIONS
--- ============================================
-
--- Function to update wallet balance atomically
-CREATE OR REPLACE FUNCTION public.update_wallet_balance(
-  p_user_id UUID,
-  p_amount DECIMAL,
-  p_operation TEXT
-)
-RETURNS DECIMAL AS $$
-DECLARE
-  v_new_balance DECIMAL;
-BEGIN
-  IF p_operation = 'add' THEN
-    UPDATE public.profiles 
-    SET nkap_balance = nkap_balance + p_amount,
-        updated_at = NOW()
-    WHERE id = p_user_id
-    RETURNING nkap_balance INTO v_new_balance;
-  ELSIF p_operation = 'subtract' THEN
-    UPDATE public.profiles 
-    SET nkap_balance = nkap_balance - p_amount,
-        updated_at = NOW()
-    WHERE id = p_user_id AND nkap_balance >= p_amount
-    RETURNING nkap_balance INTO v_new_balance;
-  END IF;
-  
-  RETURN v_new_balance;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Function to update caisse balance atomically
-CREATE OR REPLACE FUNCTION public.update_caisse_balance(
-  p_caisse_id UUID,
-  p_amount DECIMAL,
-  p_operation TEXT
-)
-RETURNS DECIMAL AS $$
-DECLARE
-  v_new_balance DECIMAL;
-BEGIN
-  IF p_operation = 'add' THEN
-    UPDATE public.caisses 
-    SET balance = balance + p_amount,
-        updated_at = NOW()
-    WHERE id = p_caisse_id
-    RETURNING balance INTO v_new_balance;
-  ELSIF p_operation = 'subtract' THEN
-    UPDATE public.caisses 
-    SET balance = balance - p_amount,
-        updated_at = NOW()
-    WHERE id = p_caisse_id AND balance >= p_amount
-    RETURNING balance INTO v_new_balance;
-  END IF;
-  
-  RETURN v_new_balance;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- ============================================
 -- INSERT DEFAULT EXCHANGE RATES
 -- ============================================
-
-INSERT INTO public.exchange_rates (currency_code, currency_name, country, rate_to_nkap, rate_from_nkap) VALUES
-  ('XAF', 'Franc CFA (CEMAC)', 'CM', 0.01, 100),
-  ('XOF', 'Franc CFA (UEMOA)', 'SN', 0.01, 100),
-  ('NGN', 'Naira', 'NG', 0.02, 50),
-  ('KES', 'Shilling kenyan', 'KE', 0.1, 10),
-  ('GHS', 'Cedi', 'GH', 0.5, 2),
-  ('ZAR', 'Rand', 'ZA', 0.3, 3.33),
-  ('MAD', 'Dirham', 'MA', 0.5, 2),
-  ('EUR', 'Euro', 'EU', 6.67, 0.15),
-  ('USD', 'Dollar US', 'US', 6.25, 0.16)
-ON CONFLICT (currency_code) DO UPDATE SET
+INSERT INTO public.exchange_rates (currency_code, currency_name, country, rate_to_nkap)
+VALUES 
+  ('XAF', 'Franc CFA', 'Cameroun', 100),
+  ('XOF', 'Franc CFA BCEAO', 'Sénégal', 100),
+  ('NGN', 'Naira', 'Nigeria', 50),
+  ('KES', 'Shilling', 'Kenya', 10),
+  ('GHS', 'Cedi', 'Ghana', 2),
+  ('ZAR', 'Rand', 'Afrique du Sud', 3),
+  ('MAD', 'Dirham', 'Maroc', 2),
+  ('EUR', 'Euro', 'France', 0.15),
+  ('USD', 'Dollar US', 'États-Unis', 0.16)
+ON CONFLICT (currency_code) DO UPDATE SET 
   rate_to_nkap = EXCLUDED.rate_to_nkap,
-  rate_from_nkap = EXCLUDED.rate_from_nkap,
   updated_at = NOW();

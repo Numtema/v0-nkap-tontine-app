@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NkapLogo } from "@/components/nkap-logo"
 import { ArrowLeft, CheckCircle2 } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { forgotPasswordAction } from "@/lib/actions/auth"
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
@@ -24,20 +24,16 @@ export default function ForgotPasswordPage() {
     setError("")
 
     try {
-      const supabase = createClient()
+      const formData = new FormData()
+      formData.append("email", email)
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo:
-          process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/reset-password`,
-      })
+      const result = await forgotPasswordAction(formData)
 
-      if (error) {
-        setError(error.message)
-        setIsLoading(false)
-        return
+      if (result?.error) {
+        setError(result.error)
+      } else {
+        setSent(true)
       }
-
-      setSent(true)
     } catch (err) {
       setError("Une erreur est survenue. Veuillez réessayer.")
     } finally {

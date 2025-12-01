@@ -10,7 +10,7 @@ import { NkapLogo } from "@/components/nkap-logo"
 import { CountrySelector } from "@/components/country-selector"
 import { SUPPORTED_COUNTRIES, type Country } from "@/lib/types"
 import { Eye, EyeOff, ArrowLeft, ChevronRight } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { signupAction } from "@/lib/actions/auth"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -61,33 +61,22 @@ export default function SignupPage() {
     setErrors({})
 
     try {
-      const supabase = createClient()
+      const formDataToSend = new FormData()
+      formDataToSend.append("email", formData.email)
+      formDataToSend.append("password", formData.password)
+      formDataToSend.append("fullName", `${formData.firstName} ${formData.lastName}`)
+      formDataToSend.append("phone", formData.phone)
+      formDataToSend.append("country", formData.country.code)
 
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/dashboard`,
-          data: {
-            full_name: `${formData.firstName} ${formData.lastName}`,
-            phone: formData.phone,
-            country: formData.country.code,
-          },
-        },
-      })
+      const result = await signupAction(formDataToSend)
 
-      if (error) {
-        setErrors({ submit: error.message })
+      if (result?.error) {
+        setErrors({ submit: result.error })
         setIsLoading(false)
-        return
       }
-
-      if (data.user) {
-        router.push("/auth/sign-up-success")
-      }
+      // Success will redirect via server action
     } catch (err) {
       setErrors({ submit: "Une erreur est survenue. Veuillez réessayer." })
-    } finally {
       setIsLoading(false)
     }
   }

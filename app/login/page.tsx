@@ -9,52 +9,35 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NkapLogo } from "@/components/nkap-logo"
 import { Eye, EyeOff, ArrowLeft, Fingerprint } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { loginAction } from "@/lib/actions/auth"
 
 export default function LoginPage() {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
   const [error, setError] = useState("")
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
 
+    const formData = new FormData(e.currentTarget)
+
     try {
-      const supabase = createClient()
+      const result = await loginAction(formData)
 
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (error) {
-        if (error.message.includes("Invalid login credentials")) {
-          setError("Email ou mot de passe incorrect")
-        } else if (error.message.includes("Email not confirmed")) {
-          setError("Veuillez confirmer votre email avant de vous connecter")
-        } else {
-          setError(error.message)
-        }
+      if (result?.error) {
+        setError(result.error)
         setIsLoading(false)
-        return
       }
-
-      router.push("/dashboard")
-      router.refresh()
     } catch (err) {
       setError("Une erreur est survenue. Veuillez réessayer.")
-    } finally {
       setIsLoading(false)
     }
   }
 
   const handleBiometric = async () => {
-    // Biometric auth would require native app integration
     setError("La connexion biométrique n'est pas encore disponible")
   }
 
@@ -81,10 +64,10 @@ export default function LoginPage() {
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
+              name="email"
               type="email"
               placeholder="votre@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              required
               className="h-14 rounded-2xl text-base"
             />
           </div>
@@ -99,10 +82,10 @@ export default function LoginPage() {
             <div className="relative">
               <Input
                 id="password"
+                name="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="Votre mot de passe"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                required
                 className="h-14 rounded-2xl text-base pr-12"
               />
               <Button
@@ -122,7 +105,7 @@ export default function LoginPage() {
           <Button
             type="submit"
             size="lg"
-            disabled={isLoading || !email || !password}
+            disabled={isLoading}
             className="w-full rounded-full h-14 text-lg font-semibold"
           >
             {isLoading ? (

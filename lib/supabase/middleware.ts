@@ -25,13 +25,17 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Public routes that don't require authentication
-  const publicRoutes = ["/", "/onboarding", "/login", "/signup", "/verify", "/forgot-password", "/auth"]
-  const isPublicRoute = publicRoutes.some(
-    (route) => request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(route + "/"),
-  )
+  const publicPages = ["/", "/onboarding", "/login", "/signup", "/verify", "/forgot-password"]
+  const isPublicPage = publicPages.some((page) => request.nextUrl.pathname === page)
+  const isAuthCallback = request.nextUrl.pathname.startsWith("/auth")
 
-  if (!user && !isPublicRoute) {
+  if (user && isPublicPage) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/dashboard"
+    return NextResponse.redirect(url)
+  }
+
+  if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     return NextResponse.redirect(url)

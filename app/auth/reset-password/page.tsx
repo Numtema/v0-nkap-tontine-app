@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -9,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NkapLogo } from "@/components/nkap-logo"
 import { Eye, EyeOff, CheckCircle2 } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { resetPasswordAction } from "@/lib/actions/auth"
 
 export default function ResetPasswordPage() {
   const router = useRouter()
@@ -37,25 +36,22 @@ export default function ResetPasswordPage() {
     setIsLoading(true)
 
     try {
-      const supabase = createClient()
+      const formData = new FormData()
+      formData.append("password", password)
 
-      const { error } = await supabase.auth.updateUser({
-        password: password,
-      })
+      const result = await resetPasswordAction(formData)
 
-      if (error) {
-        setError(error.message)
+      if (result?.error) {
+        setError(result.error)
         setIsLoading(false)
-        return
+      } else {
+        setSuccess(true)
+        setTimeout(() => {
+          router.push("/dashboard")
+        }, 2000)
       }
-
-      setSuccess(true)
-      setTimeout(() => {
-        router.push("/dashboard")
-      }, 2000)
     } catch (err) {
       setError("Une erreur est survenue. Veuillez réessayer.")
-    } finally {
       setIsLoading(false)
     }
   }

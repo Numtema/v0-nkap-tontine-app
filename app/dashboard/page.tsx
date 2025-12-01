@@ -25,58 +25,98 @@ export default async function DashboardPage() {
   // Get profile
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
 
-  // Get user's tontines
-  const { data: memberships } = await supabase
-    .from("tontine_members")
-    .select(`
-      *,
-      tontine:tontines(*)
-    `)
-    .eq("user_id", user.id)
-    .in("status", ["active", "pending"])
-    .limit(3)
+  let tontines: Array<{
+    id: string
+    name: string
+    slogan: string
+    contributionAmount: number
+    frequency: "daily" | "weekly" | "biweekly" | "monthly" | "yearly"
+    currentMembers: number
+    maxMembers: number
+    status: "pending" | "active" | "completed"
+    nextContribution: Date
+    myContributionStatus: "pending" | "paid" | "late"
+  }> = []
 
-  const tontines =
-    memberships?.map((m) => ({
-      id: m.tontine?.id || "",
-      name: m.tontine?.name || "",
-      slogan: m.tontine?.slogan || "",
-      contributionAmount: m.tontine?.contribution_amount || 0,
-      frequency: m.tontine?.frequency as "daily" | "weekly" | "biweekly" | "monthly" | "yearly",
-      currentMembers: 0,
-      maxMembers: m.tontine?.max_members || 0,
-      status: m.tontine?.status as "pending" | "active" | "completed",
-      nextContribution: m.tontine?.next_session_date ? new Date(m.tontine.next_session_date) : new Date(),
-      myContributionStatus: "pending" as const,
-    })) || []
+  let activities: Array<{
+    id: string
+    type: "contribution" | "payout" | "join" | "penalty" | "vote"
+    title: string
+    description: string
+    tontineName: string
+    time: string
+  }> = []
 
-  // Get recent activity
-  const { data: recentContributions } = await supabase
-    .from("contributions")
-    .select(`
-      *,
-      tontine:tontines(name),
-      profile:profiles(full_name)
-    `)
-    .order("created_at", { ascending: false })
-    .limit(5)
+  let notificationCount = 0
 
-  const activities =
-    recentContributions?.map((c) => ({
-      id: c.id,
-      type: "contribution" as const,
-      title: "Contribution reçue",
-      description: `${c.profile?.full_name || "Membre"} a contribué ${c.amount} Nkap`,
-      tontineName: c.tontine?.name || "",
-      time: getTimeAgo(new Date(c.created_at)),
-    })) || []
+  try {
+    // Try to get user's tontines
+    const { data: memberships } = await supabase
+      .from("tontine_members")
+      .select(`
+        *,
+        tontine:tontines(*)
+      `)
+      .eq("user_id", user.id)
+      .in("status", ["active", "pending"])
+      .limit(3)
 
-  // Get notifications count
-  const { count: notificationCount } = await supabase
-    .from("notifications")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("is_read", false)
+    if (memberships) {
+      tontines = memberships.map((m) => ({
+        id: m.tontine?.id || "",
+        name: m.tontine?.name || "",
+        slogan: m.tontine?.slogan || "",
+        contributionAmount: m.tontine?.contribution_amount || 0,
+        frequency: m.tontine?.frequency as "daily" | "weekly" | "biweekly" | "monthly" | "yearly",
+        currentMembers: 0,
+        maxMembers: m.tontine?.max_members || 0,
+        status: m.tontine?.status as "pending" | "active" | "completed",
+        nextContribution: m.tontine?.next_session_date ? new Date(m.tontine.next_session_date) : new Date(),
+        myContributionStatus: "pending" as const,
+      }))
+    }
+  } catch {
+    // Tables don't exist yet - continue with empty array
+  }
+
+  try {
+    // Get recent activity
+    const { data: recentContributions } = await supabase
+      .from("contributions")
+      .select(`
+        *,
+        tontine:tontines(name),
+        profile:profiles(full_name)
+      `)
+      .order("created_at", { ascending: false })
+      .limit(5)
+
+    if (recentContributions) {
+      activities = recentContributions.map((c) => ({
+        id: c.id,
+        type: "contribution" as const,
+        title: "Contribution reçue",
+        description: `${c.profile?.full_name || "Membre"} a contribué ${c.amount} Nkap`,
+        tontineName: c.tontine?.name || "",
+        time: getTimeAgo(new Date(c.created_at)),
+      }))
+    }
+  } catch {
+    // Tables don't exist yet - continue with empty array
+  }
+
+  try {
+    // Get notifications count
+    const { count } = await supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false)
+
+    notificationCount = count || 0
+  } catch {
+    // Table doesn't exist yet
+  }
 
   const country = SUPPORTED_COUNTRIES.find((c) => c.code === profile?.country) || SUPPORTED_COUNTRIES[0]
   const userName = profile?.full_name || user.email?.split("@")[0] || "Utilisateur"
@@ -116,7 +156,7 @@ export default async function DashboardPage() {
                 className="rounded-full text-primary-foreground hover:bg-primary-foreground/20 relative"
               >
                 <Bell className="w-5 h-5" />
-                {notificationCount && notificationCount > 0 && (
+                {notificationCount > 0 && (
                   <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-secondary rounded-full border-2 border-primary" />
                 )}
               </Button>

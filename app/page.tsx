@@ -9,22 +9,20 @@ export default function SplashPage() {
   const [isAnimating, setIsAnimating] = useState(true)
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsAnimating(false)
-      // Check if user has seen onboarding
+    const checkOnboarding = () => {
       const hasSeenOnboarding = localStorage.getItem("nkap_onboarding_complete")
-      const isLoggedIn = localStorage.getItem("nkap_user")
 
-      if (isLoggedIn) {
-        router.push("/dashboard")
-      } else if (hasSeenOnboarding) {
-        router.push("/login")
-      } else {
-        router.push("/onboarding")
-      }
-    }, 2500)
+      setTimeout(() => {
+        setIsAnimating(false)
+        if (hasSeenOnboarding) {
+          router.push("/login")
+        } else {
+          router.push("/onboarding")
+        }
+      }, 2500)
+    }
 
-    return () => clearTimeout(timer)
+    checkOnboarding()
   }, [router])
 
   return (
@@ -39,7 +37,6 @@ export default function SplashPage() {
         La tontine digitale africaine
       </p>
 
-      {/* Loading indicator */}
       <div className={`mt-12 flex gap-2 transition-opacity duration-300 ${isAnimating ? "opacity-100" : "opacity-0"}`}>
         {[0, 1, 2].map((i) => (
           <div

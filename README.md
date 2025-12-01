@@ -1,30 +1,43 @@
-# Nkap tontine app
+# Nkap - Application de Tontine Africaine
 
-*Automatically synced with your [v0.app](https://v0.app) deployments*
+Nkap est une plateforme moderne de gestion de tontines avec une monnaie électronique interne.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/lionels-projects-d3c3c04e/v0-nkap-tontine-app)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/qp3RgpXKfTn)
+## Variables d'environnement requises
 
-## Overview
+### En développement (v0 preview)
+Laissez `NEXT_PUBLIC_SITE_URL` vide ou mettez:
+\`\`\`
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+\`\`\`
 
-This repository will stay in sync with your deployed chats on [v0.app](https://v0.app).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.app](https://v0.app).
+### En production (Vercel)
+\`\`\`
+NEXT_PUBLIC_SITE_URL=https://votre-app.vercel.app
+\`\`\`
 
-## Deployment
+## Configuration Supabase
 
-Your project is live at:
+1. Exécutez le script SQL: `scripts/000_setup_all_tables.sql`
+2. Configurez les URL de redirection dans Supabase:
+   - Dashboard > Auth > URL Configuration
+   - Ajoutez: `https://votre-app.vercel.app/auth/callback`
+   - Ajoutez: `http://localhost:3000/auth/callback` (pour dev)
 
-**[https://vercel.com/lionels-projects-d3c3c04e/v0-nkap-tontine-app](https://vercel.com/lionels-projects-d3c3c04e/v0-nkap-tontine-app)**
+## Fonctionnalités
 
-## Build your app
+- Authentification complète (signup, login, reset password)
+- Gestion de portefeuille Nkap
+- Création et gestion de tontines
+- Système de vote pour le bureau
+- Tirage au sort automatique
+- Chat de groupe
+- Rapports financiers
+- Multi-devises (XAF, NGN, KES, etc.)
 
-Continue building your app on:
+## Architecture
 
-**[https://v0.app/chat/qp3RgpXKfTn](https://v0.app/chat/qp3RgpXKfTn)**
-
-## How It Works
-
-1. Create and modify your project using [v0.app](https://v0.app)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+- Next.js 16 avec App Router
+- Supabase pour l'authentification et la base de données
+- Server Actions pour toutes les mutations
+- Row Level Security (RLS) activée
+- Design avec Poppins et couleurs africaines
