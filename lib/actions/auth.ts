@@ -4,6 +4,40 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 
+function getSiteUrl() {
+  // Check for explicitly set production URL first
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "") // Remove trailing slash
+  }
+
+  // Check for Vercel deployment URL
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+
+  // Check for Vercel project production URL
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  }
+
+  // Hardcoded production URL as fallback for Nkap
+  if (process.env.NODE_ENV === "production") {
+    return "https://nkaptontine.vercel.app"
+  }
+
+  // Development: use DEV redirect URL
+  if (process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL) {
+    try {
+      const url = new URL(process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL)
+      return url.origin
+    } catch {
+      // Invalid URL, fall through
+    }
+  }
+
+  return "http://localhost:3000"
+}
+
 export async function loginAction(formData: FormData) {
   const email = formData.get("email") as string
   const password = formData.get("password") as string
@@ -19,6 +53,7 @@ export async function loginAction(formData: FormData) {
   })
 
   if (error) {
+    console.log("[v0] Login error:", error.message)
     if (error.message.includes("Invalid login credentials")) {
       return { error: "Email ou mot de passe incorrect" }
     } else if (error.message.includes("Email not confirmed")) {
@@ -44,9 +79,10 @@ export async function signupAction(formData: FormData) {
 
   const supabase = await createClient()
 
-  const redirectUrl =
-    process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
-    `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth/callback`
+  const siteUrl = getSiteUrl()
+  const redirectUrl = `${siteUrl}/auth/callback`
+
+  console.log("[v0] Signup redirect URL:", redirectUrl)
 
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -62,12 +98,13 @@ export async function signupAction(formData: FormData) {
   })
 
   if (error) {
+    console.log("[v0] Signup error:", error.message)
     return { error: error.message }
   }
 
   if (data.user) {
     // Create profile
-    await supabase.from("profiles").insert({
+    const { error: profileError } = await supabase.from("profiles").insert({
       id: data.user.id,
       email: data.user.email,
       full_name: fullName,
@@ -76,6 +113,10 @@ export async function signupAction(formData: FormData) {
       nkap_balance: 0,
       reputation_score: 5,
     })
+
+    if (profileError) {
+      console.log("[v0] Profile creation error:", profileError.message)
+    }
   }
 
   redirect("/auth/sign-up-success")
@@ -89,15 +130,18 @@ export async function forgotPasswordAction(formData: FormData) {
   }
 
   const supabase = await createClient()
-  const redirectUrl =
-    process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
-    `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth/reset-password`
+
+  const siteUrl = getSiteUrl()
+  const redirectUrl = `${siteUrl}/auth/reset-password`
+
+  console.log("[v0] Forgot password redirect URL:", redirectUrl)
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: redirectUrl,
   })
 
   if (error) {
+    console.log("[v0] Forgot password error:", error.message)
     return { error: error.message }
   }
 
@@ -117,6 +161,7 @@ export async function resetPasswordAction(formData: FormData) {
   })
 
   if (error) {
+    console.log("[v0] Reset password error:", error.message)
     return { error: error.message }
   }
 

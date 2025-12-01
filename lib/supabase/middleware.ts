@@ -27,7 +27,12 @@ export async function updateSession(request: NextRequest) {
 
   const publicPages = ["/", "/onboarding", "/login", "/signup", "/verify", "/forgot-password"]
   const isPublicPage = publicPages.some((page) => request.nextUrl.pathname === page)
-  const isAuthCallback = request.nextUrl.pathname.startsWith("/auth")
+  const isAuthRoute = request.nextUrl.pathname.startsWith("/auth")
+
+  // Don't redirect auth routes
+  if (isAuthRoute) {
+    return supabaseResponse
+  }
 
   if (user && isPublicPage) {
     const url = request.nextUrl.clone()
