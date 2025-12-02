@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { NkapLogo } from "@/components/nkap-logo"
 import { CountrySelector } from "@/components/country-selector"
 import { SUPPORTED_COUNTRIES, type Country } from "@/lib/types"
-import { Eye, EyeOff, ArrowLeft, ChevronRight } from "lucide-react"
+import { Eye, EyeOff, ArrowLeft, ChevronRight, Loader2 } from "lucide-react"
 import { signupAction } from "@/lib/actions/auth"
 
 export default function SignupPage() {
@@ -86,33 +86,34 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background flex flex-col">
+    <main className="min-h-screen min-h-[100dvh] bg-gradient-to-b from-background to-secondary/20 flex flex-col safe-top safe-bottom">
       {/* Header */}
-      <header className="p-6 flex items-center gap-4">
+      <header className="p-4 sm:p-6 flex items-center gap-4">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => (step === 1 ? router.back() : setStep(1))}
-          className="rounded-full"
+          className="rounded-full hover:bg-secondary transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
           <span className="sr-only">Retour</span>
         </Button>
         <div className="flex-1">
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+          <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
             <div
-              className="h-full bg-primary rounded-full transition-all duration-500"
+              className="h-full bg-gradient-to-r from-primary to-primary/80 rounded-full transition-all duration-500 ease-out"
               style={{ width: `${(step / 2) * 100}%` }}
             />
           </div>
         </div>
+        <span className="text-sm text-muted-foreground font-medium">Étape {step}/2</span>
       </header>
 
       {/* Content */}
-      <div className="flex-1 px-6 pb-6">
-        <div className="mb-8">
-          <NkapLogo size="sm" showText={false} className="mb-6" />
-          <h1 className="text-2xl font-bold text-foreground mb-2">
+      <div className="flex-1 px-4 sm:px-6 pb-6 max-w-md mx-auto w-full">
+        <div className="mb-8 animate-fade-in">
+          <NkapLogo size="sm" showText={false} className="mb-6" animated={false} />
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
             {step === 1 ? "Créer un compte" : "Vos coordonnées"}
           </h1>
           <p className="text-muted-foreground">
@@ -122,41 +123,47 @@ export default function SignupPage() {
 
         {step === 1 ? (
           <div className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="firstName">Prénom</Label>
+            <div className="space-y-2 animate-slide-up stagger-1">
+              <Label htmlFor="firstName" className="text-sm font-medium">
+                Prénom
+              </Label>
               <Input
                 id="firstName"
                 placeholder="Entrez votre prénom"
                 value={formData.firstName}
                 onChange={(e) => setFormData((prev) => ({ ...prev, firstName: e.target.value }))}
-                className="h-14 rounded-2xl text-base"
+                className="h-14 rounded-2xl text-base bg-card/50 backdrop-blur border-border/50 focus:border-primary focus:bg-card transition-all duration-300"
               />
-              {errors.firstName && <p className="text-sm text-destructive">{errors.firstName}</p>}
+              {errors.firstName && <p className="text-sm text-destructive animate-scale-in">{errors.firstName}</p>}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Nom</Label>
+            <div className="space-y-2 animate-slide-up stagger-2">
+              <Label htmlFor="lastName" className="text-sm font-medium">
+                Nom
+              </Label>
               <Input
                 id="lastName"
                 placeholder="Entrez votre nom"
                 value={formData.lastName}
                 onChange={(e) => setFormData((prev) => ({ ...prev, lastName: e.target.value }))}
-                className="h-14 rounded-2xl text-base"
+                className="h-14 rounded-2xl text-base bg-card/50 backdrop-blur border-border/50 focus:border-primary focus:bg-card transition-all duration-300"
               />
-              {errors.lastName && <p className="text-sm text-destructive">{errors.lastName}</p>}
+              {errors.lastName && <p className="text-sm text-destructive animate-scale-in">{errors.lastName}</p>}
             </div>
 
-            <div className="space-y-2">
-              <Label>Pays de résidence</Label>
+            <div className="space-y-2 animate-slide-up stagger-3">
+              <Label className="text-sm font-medium">Pays de résidence</Label>
               <CountrySelector value={formData.country} onChange={handleCountryChange} />
             </div>
           </div>
         ) : (
           <div className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="phone">Numéro de téléphone (optionnel)</Label>
+            <div className="space-y-2 animate-slide-up stagger-1">
+              <Label htmlFor="phone" className="text-sm font-medium">
+                Numéro de téléphone (optionnel)
+              </Label>
               <div className="flex gap-2">
-                <div className="h-14 px-4 rounded-2xl bg-muted flex items-center gap-2 text-sm">
+                <div className="h-14 px-4 rounded-2xl bg-secondary/50 backdrop-blur flex items-center gap-2 text-sm border border-border/50">
                   <span>{formData.country.flag}</span>
                   <span className="text-muted-foreground">+{getCountryCode(formData.country.code)}</span>
                 </div>
@@ -166,26 +173,30 @@ export default function SignupPage() {
                   placeholder="691 234 567"
                   value={formData.phone}
                   onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
-                  className="flex-1 h-14 rounded-2xl text-base"
+                  className="flex-1 h-14 rounded-2xl text-base bg-card/50 backdrop-blur border-border/50 focus:border-primary focus:bg-card transition-all duration-300"
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+            <div className="space-y-2 animate-slide-up stagger-2">
+              <Label htmlFor="email" className="text-sm font-medium">
+                Email
+              </Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="votre@email.com"
                 value={formData.email}
                 onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
-                className="h-14 rounded-2xl text-base"
+                className="h-14 rounded-2xl text-base bg-card/50 backdrop-blur border-border/50 focus:border-primary focus:bg-card transition-all duration-300"
               />
-              {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+              {errors.email && <p className="text-sm text-destructive animate-scale-in">{errors.email}</p>}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Mot de passe</Label>
+            <div className="space-y-2 animate-slide-up stagger-3">
+              <Label htmlFor="password" className="text-sm font-medium">
+                Mot de passe
+              </Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -193,51 +204,63 @@ export default function SignupPage() {
                   placeholder="Minimum 6 caractères"
                   value={formData.password}
                   onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
-                  className="h-14 rounded-2xl text-base pr-12"
+                  className="h-14 rounded-2xl text-base pr-12 bg-card/50 backdrop-blur border-border/50 focus:border-primary focus:bg-card transition-all duration-300"
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full hover:bg-secondary"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5 text-muted-foreground" />
+                  ) : (
+                    <Eye className="w-5 h-5 text-muted-foreground" />
+                  )}
                 </Button>
               </div>
-              {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
+              {errors.password && <p className="text-sm text-destructive animate-scale-in">{errors.password}</p>}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+            <div className="space-y-2 animate-slide-up stagger-4">
+              <Label htmlFor="confirmPassword" className="text-sm font-medium">
+                Confirmer le mot de passe
+              </Label>
               <Input
                 id="confirmPassword"
                 type="password"
                 placeholder="Confirmez votre mot de passe"
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData((prev) => ({ ...prev, confirmPassword: e.target.value }))}
-                className="h-14 rounded-2xl text-base"
+                className="h-14 rounded-2xl text-base bg-card/50 backdrop-blur border-border/50 focus:border-primary focus:bg-card transition-all duration-300"
               />
-              {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword}</p>}
+              {errors.confirmPassword && (
+                <p className="text-sm text-destructive animate-scale-in">{errors.confirmPassword}</p>
+              )}
             </div>
 
             {errors.submit && (
-              <p className="text-sm text-destructive text-center p-3 bg-destructive/10 rounded-xl">{errors.submit}</p>
+              <div className="animate-scale-in">
+                <p className="text-sm text-destructive text-center p-3 bg-destructive/10 rounded-xl border border-destructive/20">
+                  {errors.submit}
+                </p>
+              </div>
             )}
           </div>
         )}
       </div>
 
       {/* Footer */}
-      <footer className="p-6 space-y-4">
+      <footer className="p-4 sm:p-6 space-y-4 safe-bottom">
         <Button
           size="lg"
           onClick={handleNext}
           disabled={isLoading}
-          className="w-full rounded-full h-14 text-lg font-semibold"
+          className="w-full rounded-full h-14 text-base sm:text-lg font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg shadow-primary/25 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 disabled:opacity-70"
         >
           {isLoading ? (
-            <div className="w-6 h-6 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+            <Loader2 className="w-6 h-6 animate-spin" />
           ) : (
             <>
               {step === 1 ? "Continuer" : "S'inscrire"}
@@ -248,7 +271,7 @@ export default function SignupPage() {
 
         <p className="text-center text-sm text-muted-foreground">
           Déjà un compte?{" "}
-          <Link href="/login" className="text-primary font-medium hover:underline">
+          <Link href="/login" className="text-primary font-semibold hover:text-primary/80 transition-colors">
             Se connecter
           </Link>
         </p>

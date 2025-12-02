@@ -14,7 +14,6 @@ import { SUPPORTED_COUNTRIES } from "@/lib/types"
 export default async function DashboardPage() {
   const supabase = await createClient()
 
-  // Get user
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -22,7 +21,6 @@ export default async function DashboardPage() {
     redirect("/login")
   }
 
-  // Get profile
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
 
   let tontines: Array<{
@@ -50,13 +48,9 @@ export default async function DashboardPage() {
   let notificationCount = 0
 
   try {
-    // Try to get user's tontines
     const { data: memberships } = await supabase
       .from("tontine_members")
-      .select(`
-        *,
-        tontine:tontines(*)
-      `)
+      .select(`*, tontine:tontines(*)`)
       .eq("user_id", user.id)
       .in("status", ["active", "pending"])
       .limit(3)
@@ -76,18 +70,13 @@ export default async function DashboardPage() {
       }))
     }
   } catch {
-    // Tables don't exist yet - continue with empty array
+    // Tables don't exist yet
   }
 
   try {
-    // Get recent activity
     const { data: recentContributions } = await supabase
       .from("contributions")
-      .select(`
-        *,
-        tontine:tontines(name),
-        profile:profiles(full_name)
-      `)
+      .select(`*, tontine:tontines(name), profile:profiles(full_name)`)
       .order("created_at", { ascending: false })
       .limit(5)
 
@@ -102,11 +91,10 @@ export default async function DashboardPage() {
       }))
     }
   } catch {
-    // Tables don't exist yet - continue with empty array
+    // Tables don't exist yet
   }
 
   try {
-    // Get notifications count
     const { count } = await supabase
       .from("notifications")
       .select("*", { count: "exact", head: true })
@@ -128,24 +116,30 @@ export default async function DashboardPage() {
     .slice(0, 2)
 
   return (
-    <main className="flex-1">
-      {/* Header */}
-      <header className="bg-primary text-primary-foreground p-6 pb-28 rounded-b-[2rem]">
-        <div className="flex items-center justify-between mb-6">
+    <main className="flex-1 min-h-[100dvh] safe-top">
+      {/* Header with gradient background */}
+      <header className="bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground p-4 sm:p-6 pb-28 sm:pb-32 rounded-b-[2rem] sm:rounded-b-[2.5rem] relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
+        </div>
+
+        <div className="flex items-center justify-between mb-6 relative z-10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary-foreground/20 flex items-center justify-center">
-              <span className="text-lg font-semibold">{initials}</span>
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/20 backdrop-blur flex items-center justify-center ring-2 ring-white/30">
+              <span className="text-base sm:text-lg font-semibold">{initials}</span>
             </div>
             <div>
               <p className="text-sm text-primary-foreground/70">Bonjour,</p>
-              <h1 className="font-semibold">{userName}</h1>
+              <h1 className="font-semibold text-base sm:text-lg">{userName}</h1>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-full text-primary-foreground hover:bg-primary-foreground/20"
+              className="rounded-full text-primary-foreground hover:bg-white/20 transition-colors"
             >
               <Search className="w-5 h-5" />
             </Button>
@@ -153,11 +147,11 @@ export default async function DashboardPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="rounded-full text-primary-foreground hover:bg-primary-foreground/20 relative"
+                className="rounded-full text-primary-foreground hover:bg-white/20 transition-colors relative"
               >
                 <Bell className="w-5 h-5" />
                 {notificationCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-secondary rounded-full border-2 border-primary" />
+                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-accent rounded-full ring-2 ring-primary animate-pulse" />
                 )}
               </Button>
             </Link>
@@ -165,7 +159,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Balance Card */}
-        <div className="relative">
+        <div className="relative z-10">
           <NkapBalanceCard
             balance={profile?.nkap_balance || 0}
             lockedBalance={0}
@@ -177,33 +171,45 @@ export default async function DashboardPage() {
       </header>
 
       {/* Content */}
-      <div className="px-4 -mt-16 space-y-6 pb-6">
+      <div className="px-4 sm:px-6 -mt-14 sm:-mt-16 space-y-6 pb-28 sm:pb-32">
         {/* Quick Actions */}
-        <QuickActions />
+        <div className="animate-slide-up">
+          <QuickActions />
+        </div>
 
         {/* My Tontines */}
-        <section>
+        <section className="animate-slide-up stagger-1">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Mes Tontines</h2>
-            <Link href="/dashboard/tontines" className="text-sm text-primary font-medium">
+            <h2 className="text-lg font-semibold text-foreground">Mes Tontines</h2>
+            <Link
+              href="/dashboard/tontines"
+              className="text-sm text-primary font-medium hover:text-primary/80 transition-colors"
+            >
               Voir tout
             </Link>
           </div>
           {tontines.length > 0 ? (
             <div className="space-y-3">
-              {tontines.map((tontine) => (
-                <TontineCard key={tontine.id} tontine={tontine} />
+              {tontines.map((tontine, index) => (
+                <div key={tontine.id} className={`animate-slide-up stagger-${index + 1}`}>
+                  <TontineCard tontine={tontine} />
+                </div>
               ))}
             </div>
           ) : (
-            <Card className="p-6 rounded-2xl text-center">
+            <Card className="p-6 rounded-2xl sm:rounded-3xl text-center glass border-border/30">
               <p className="text-muted-foreground mb-4">Vous n'avez pas encore de tontine</p>
-              <div className="flex gap-3 justify-center">
+              <div className="flex gap-3 justify-center flex-wrap">
                 <Link href="/dashboard/create">
-                  <Button className="rounded-full">Créer une tontine</Button>
+                  <Button className="rounded-full bg-gradient-to-r from-primary to-primary/90 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all">
+                    Créer une tontine
+                  </Button>
                 </Link>
                 <Link href="/dashboard/join">
-                  <Button variant="outline" className="rounded-full bg-transparent">
+                  <Button
+                    variant="outline"
+                    className="rounded-full bg-card/50 backdrop-blur border-border/50 hover:bg-card hover:border-primary/30 transition-all"
+                  >
                     Rejoindre
                   </Button>
                 </Link>
@@ -213,34 +219,41 @@ export default async function DashboardPage() {
         </section>
 
         {/* Recent Activity */}
-        <section>
+        <section className="animate-slide-up stagger-2">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Activité récente</h2>
-            <Link href="/dashboard/activity" className="text-sm text-primary font-medium">
+            <h2 className="text-lg font-semibold text-foreground">Activité récente</h2>
+            <Link
+              href="/dashboard/activity"
+              className="text-sm text-primary font-medium hover:text-primary/80 transition-colors"
+            >
               Voir tout
             </Link>
           </div>
           {activities.length > 0 ? (
             <ActivityFeed activities={activities} />
           ) : (
-            <Card className="p-6 rounded-2xl text-center">
+            <Card className="p-6 rounded-2xl sm:rounded-3xl text-center glass border-border/30">
               <p className="text-muted-foreground">Aucune activité récente</p>
             </Card>
           )}
         </section>
 
         {/* Exchange Rate Info */}
-        <Card className="p-4 rounded-2xl bg-accent/10 border-accent/20">
+        <Card className="p-4 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-secondary/50 to-secondary/30 border-primary/10 animate-slide-up stagger-3">
           <div className="flex items-center gap-3">
-            <NkapLogo size="sm" showText={false} />
+            <NkapLogo size="sm" showText={false} animated={false} />
             <div className="flex-1">
               <p className="text-sm text-muted-foreground">Taux actuel</p>
-              <p className="font-semibold">
+              <p className="font-semibold text-foreground">
                 1 Nkap = {country.nkapRate} {country.currencySymbol}
               </p>
             </div>
             <Link href="/dashboard/wallet/rates">
-              <Button variant="outline" size="sm" className="rounded-full text-xs bg-transparent">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full text-xs bg-card/50 backdrop-blur border-border/50 hover:bg-card hover:border-primary/30 transition-all"
+              >
                 Historique
               </Button>
             </Link>
