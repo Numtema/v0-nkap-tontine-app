@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, ChevronRight, Users, Wallet, Calendar, Shield, Plus, Trash2 } from "lucide-react"
 import { SUPPORTED_COUNTRIES } from "@/lib/types"
+import { createTontine } from "@/lib/actions/tontines"
 
 const frequencies = [
   { value: "daily", label: "Quotidien" },
@@ -29,6 +30,7 @@ export default function CreateTontinePage() {
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
   const country = SUPPORTED_COUNTRIES[0]
 
   const [formData, setFormData] = useState({
@@ -54,8 +56,46 @@ export default function CreateTontinePage() {
 
   const handleCreate = async () => {
     setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    router.push("/dashboard/tontines")
+    setError("")
+
+    const result = await createTontine({
+      name: formData.name,
+      description: formData.description,
+      slogan: formData.slogan,
+      country: country.code,
+      contribution_amount: formData.contributionAmount,
+      frequency: formData.frequency,
+      membership_fee: formData.membershipFee,
+      late_penalty_percent: formData.latePenaltyPercent,
+      max_members: formData.maxMembers,
+      caisses: formData.selectedCaisses
+        .filter((id) => id !== "main")
+        .map((id) => {
+          const caisse = defaultCaisses.find((c) => c.id === id)
+          return {
+            name: caisse?.name || "",
+            type: caisse?.type || "other",
+            contribution_amount: 0,
+            is_required: false,
+          }
+        })
+        .concat(
+          formData.customCaisses.map((c) => ({
+            name: c.name,
+            type: "custom",
+            contribution_amount: c.amount,
+            is_required: false,
+          })),
+        ),
+    })
+
+    setIsLoading(false)
+
+    if (result.error) {
+      setError(result.error)
+    } else {
+      router.push("/dashboard/tontines")
+    }
   }
 
   const toggleCaisse = (id: string) => {
@@ -104,12 +144,12 @@ export default function CreateTontinePage() {
               <div key={s} className="flex items-center">
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    s <= step ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    s <= step ? "bg-[#87A28E] text-white" : "bg-muted text-muted-foreground"
                   }`}
                 >
                   <Icon className="w-5 h-5" />
                 </div>
-                {s < 4 && <div className={`w-12 h-1 mx-1 rounded ${s < step ? "bg-primary" : "bg-muted"}`} />}
+                {s < 4 && <div className={`w-12 h-1 mx-1 rounded ${s < step ? "bg-[#87A28E]" : "bg-muted"}`} />}
               </div>
             )
           })}
@@ -119,6 +159,8 @@ export default function CreateTontinePage() {
 
       {/* Content */}
       <div className="flex-1 p-4 overflow-y-auto">
+        {error && <div className="mb-4 p-3 rounded-xl bg-destructive/10 text-destructive text-sm">{error}</div>}
+
         {step === 1 && (
           <div className="space-y-5">
             <div className="space-y-2">
@@ -201,7 +243,7 @@ export default function CreateTontinePage() {
                     onClick={() => setFormData((prev) => ({ ...prev, frequency: freq.value }))}
                     className={`p-3 rounded-xl border-2 text-sm font-medium transition-colors ${
                       formData.frequency === freq.value
-                        ? "border-primary bg-primary/5 text-primary"
+                        ? "border-[#87A28E] bg-[#87A28E]/5 text-[#87A28E]"
                         : "border-border hover:border-muted-foreground"
                     }`}
                   >
@@ -240,7 +282,7 @@ export default function CreateTontinePage() {
                   key={caisse.id}
                   className={`p-4 rounded-2xl cursor-pointer transition-colors ${
                     formData.selectedCaisses.includes(caisse.id)
-                      ? "border-primary bg-primary/5"
+                      ? "border-[#87A28E] bg-[#87A28E]/5"
                       : "hover:border-muted-foreground"
                   } ${caisse.required ? "opacity-100" : ""}`}
                   onClick={() => !caisse.required && toggleCaisse(caisse.id)}
@@ -257,16 +299,11 @@ export default function CreateTontinePage() {
                     </div>
                     <div
                       className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                        formData.selectedCaisses.includes(caisse.id) ? "border-primary bg-primary" : "border-border"
+                        formData.selectedCaisses.includes(caisse.id) ? "border-[#87A28E] bg-[#87A28E]" : "border-border"
                       }`}
                     >
                       {formData.selectedCaisses.includes(caisse.id) && (
-                        <svg
-                          className="w-4 h-4 text-primary-foreground"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
+                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       )}
@@ -381,10 +418,10 @@ export default function CreateTontinePage() {
         <Button
           onClick={handleNext}
           disabled={isLoading || (step === 1 && !formData.name.trim())}
-          className="w-full h-14 rounded-xl text-lg font-semibold gap-2"
+          className="w-full h-14 rounded-xl text-lg font-semibold gap-2 bg-[#87A28E] hover:bg-[#6B8E73]"
         >
           {isLoading ? (
-            <div className="w-6 h-6 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           ) : (
             <>
               {step === 4 ? "Créer la tontine" : "Continuer"}
