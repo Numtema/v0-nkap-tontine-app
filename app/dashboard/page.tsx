@@ -11,17 +11,33 @@ import { Bell, Search } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { SUPPORTED_COUNTRIES } from "@/lib/types"
 
+function getTimeAgo(date: Date): string {
+  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000)
+  if (seconds < 60) return "À l'instant"
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} h`
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)} j`
+  return `${Math.floor(seconds / 604800)} sem`
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
   if (!user) {
     redirect("/login")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+  let profile = null
+  try {
+    const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+    profile = data
+  } catch {
+    // Profile might not exist yet
+  }
 
   let tontines: Array<{
     id: string
@@ -61,10 +77,10 @@ export default async function DashboardPage() {
         name: m.tontine?.name || "",
         slogan: m.tontine?.slogan || "",
         contributionAmount: m.tontine?.contribution_amount || 0,
-        frequency: m.tontine?.frequency as "daily" | "weekly" | "biweekly" | "monthly" | "yearly",
+        frequency: (m.tontine?.frequency || "monthly") as "daily" | "weekly" | "biweekly" | "monthly" | "yearly",
         currentMembers: 0,
         maxMembers: m.tontine?.max_members || 0,
-        status: m.tontine?.status as "pending" | "active" | "completed",
+        status: (m.tontine?.status || "pending") as "pending" | "active" | "completed",
         nextContribution: m.tontine?.next_session_date ? new Date(m.tontine.next_session_date) : new Date(),
         myContributionStatus: "pending" as const,
       }))
@@ -158,15 +174,9 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Balance Card */}
+        {/* Balance Card - removed props that caused issues */}
         <div className="relative z-10">
-          <NkapBalanceCard
-            balance={profile?.nkap_balance || 0}
-            lockedBalance={0}
-            country={country}
-            showBalance={true}
-            onToggleVisibility={() => {}}
-          />
+          <NkapBalanceCard balance={profile?.nkap_balance || 0} lockedBalance={0} country={country} />
         </div>
       </header>
 
@@ -178,7 +188,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* My Tontines */}
-        <section className="animate-slide-up stagger-1">
+        <section className="animate-slide-up" style={{ animationDelay: "0.1s" }}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-foreground">Mes Tontines</h2>
             <Link
@@ -191,7 +201,7 @@ export default async function DashboardPage() {
           {tontines.length > 0 ? (
             <div className="space-y-3">
               {tontines.map((tontine, index) => (
-                <div key={tontine.id} className={`animate-slide-up stagger-${index + 1}`}>
+                <div key={tontine.id} className="animate-slide-up" style={{ animationDelay: `${(index + 1) * 0.1}s` }}>
                   <TontineCard tontine={tontine} />
                 </div>
               ))}
@@ -219,7 +229,7 @@ export default async function DashboardPage() {
         </section>
 
         {/* Recent Activity */}
-        <section className="animate-slide-up stagger-2">
+        <section className="animate-slide-up" style={{ animationDelay: "0.2s" }}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-foreground">Activité récente</h2>
             <Link
@@ -239,7 +249,10 @@ export default async function DashboardPage() {
         </section>
 
         {/* Exchange Rate Info */}
-        <Card className="p-4 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-secondary/50 to-secondary/30 border-primary/10 animate-slide-up stagger-3">
+        <Card
+          className="p-4 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-secondary/50 to-secondary/30 border-primary/10 animate-slide-up"
+          style={{ animationDelay: "0.3s" }}
+        >
           <div className="flex items-center gap-3">
             <NkapLogo size="sm" showText={false} animated={false} />
             <div className="flex-1">
@@ -262,14 +275,4 @@ export default async function DashboardPage() {
       </div>
     </main>
   )
-}
-
-function getTimeAgo(date: Date): string {
-  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000)
-
-  if (seconds < 60) return "À l'instant"
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} min`
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} h`
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)} j`
-  return `${Math.floor(seconds / 604800)} sem`
 }

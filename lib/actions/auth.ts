@@ -102,23 +102,6 @@ export async function signupAction(formData: FormData) {
     return { error: error.message }
   }
 
-  if (data.user) {
-    // Create profile
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: data.user.id,
-      email: data.user.email,
-      full_name: fullName,
-      phone,
-      country,
-      nkap_balance: 0,
-      reputation_score: 5,
-    })
-
-    if (profileError) {
-      console.log("[v0] Profile creation error:", profileError.message)
-    }
-  }
-
   redirect("/auth/sign-up-success")
 }
 

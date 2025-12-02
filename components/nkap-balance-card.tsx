@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Eye, EyeOff, ArrowUpRight, ArrowDownLeft, TrendingUp } from "lucide-react"
@@ -10,17 +11,12 @@ interface NkapBalanceCardProps {
   balance: number
   lockedBalance: number
   country: Country
-  showBalance: boolean
-  onToggleVisibility: () => void
+  showBalance?: boolean
+  onToggleVisibility?: () => void
 }
 
-export function NkapBalanceCard({
-  balance,
-  lockedBalance,
-  country,
-  showBalance,
-  onToggleVisibility,
-}: NkapBalanceCardProps) {
+export function NkapBalanceCard({ balance, lockedBalance, country }: NkapBalanceCardProps) {
+  const [showBalance, setShowBalance] = useState(true)
   const availableBalance = balance - lockedBalance
   const localEquivalent = balance * country.nkapRate
 
@@ -51,7 +47,7 @@ export function NkapBalanceCard({
         <Button
           variant="ghost"
           size="icon"
-          onClick={onToggleVisibility}
+          onClick={() => setShowBalance(!showBalance)}
           className="rounded-full hover:bg-secondary/80 transition-colors"
         >
           {showBalance ? (
